@@ -15,20 +15,28 @@ int main(int argc, char *argv[])
     int found = 0;
     int error = 0;
 
-    if (opts.file_count == 0) {
+    if (opts.file_count == 0)
+    {
         found = (search_stdin(&opts) == 0);
-    } else {
-        for (int i = 0; i < opts.file_count; i++) {
+    }
+    else
+    {
+        for (int i = 0; i < opts.file_count; i++)
+        {
             int result = search_file(opts.files[i], &opts);
-            if (result == 0) {
+            if (result == 0)
+            {
                 found = 1;
-            } else if (result == 2) {
+            }
+            else if (result == 2)
+            {
                 error = 1;
             }
         }
     }
 
-    if (error) {
+    if (error)
+    {
         return 2;
     }
     return found ? 0 : 1;

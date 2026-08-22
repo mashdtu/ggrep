@@ -1,0 +1,6 @@
+Hello world
+This is a test
+hello again
+Something else
+HELLO
+a line with hello in the middle

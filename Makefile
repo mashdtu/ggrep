@@ -22,4 +22,7 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all clean
+test: all
+	@bash tests/test.sh
+
+.PHONY: all clean test
