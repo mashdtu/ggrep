@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -Wall -Wextra -Werror -std=c11
+CFLAGS = -Wall -Wextra -Werror -std=c11 -I$(SRC_DIR)
 
 SRC_DIR = src
 BUILD_DIR = build
