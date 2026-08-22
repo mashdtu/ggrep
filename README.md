@@ -37,14 +37,6 @@ cat file.txt | ./build/ggrep "hello"
 
 Options can be combined, e.g. `-in` or `-inv`.
 
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | Match found |
-| `1` | No match found |
-| `2` | Error (missing file, invalid option, etc.) |
-
 ## Testing
 
 ```bash
