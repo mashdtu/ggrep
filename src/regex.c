@@ -232,7 +232,8 @@ NFA regexToNFA(const char *p)
         if (p[i + 1] == '*')
         {
             fragment = addKleeneClosure(fragment);
-            i++;
+            while (p[i + 1] == '*')
+                i++;
         }
         n = concatenate(n, fragment);
     }
