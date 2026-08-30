@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include "regex.h"
 #include "search.h"
 
 #include <ctype.h>
