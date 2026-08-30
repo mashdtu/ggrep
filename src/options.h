@@ -11,6 +11,7 @@ typedef struct
     bool ignore_case;    // whether to ignore case when matching
     bool line_numbers;   // whether to print line numbers
     bool invert;         // whether to invert match (print non-matching lines)
+    bool regex;          // whether to apply regular expression matching
     const char *pattern; // the pattern to search for
     int file_count;      // the number of files to search
     char **files;        // the list of files to search
