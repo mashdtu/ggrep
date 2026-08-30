@@ -1,3 +1,5 @@
+#include "regex.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -219,7 +221,7 @@ NFA concatenate(NFA left, NFA right)
     return left;
 }
 
-NFA regexToNFA(char *p)
+NFA regexToNFA(const char *p)
 {
     NFA n = emptyNFA();
     for (size_t i = 0; p[i] != '\0'; i++)
@@ -267,8 +269,9 @@ uint64_t simulateNonEpsilonTransitions(uint64_t active_states, NFA n, char c)
 
 bool contains_regex(const char *string, const char *pattern)
 {
-    // convert regex pattern p to NFA n
-    NFA n = regexToNFA(pattern);
+    NFA n = addKleeneClosure(addWildcard());
+    n = concatenate(n, regexToNFA(pattern));
+    n = concatenate(n, addKleeneClosure(addWildcard()));
 
     // define active states for NFA n
     uint64_t active_states = 0;
@@ -278,7 +281,7 @@ bool contains_regex(const char *string, const char *pattern)
     active_states = simulateEpsilonTransitions(active_states, n);
 
     // loop simulation across string s
-    int string_len = strlen(string);
+    size_t string_len = strlen(string);
     for (size_t i = 0; i < string_len; i++)
     {
         // simulate transitions on n
