@@ -221,22 +221,86 @@ NFA concatenate(NFA left, NFA right)
     return left;
 }
 
-NFA regexToNFA(const char *p)
+char **tokenizeRegex(const char *p)
 {
-    NFA n = emptyNFA();
+    int p_len = strlen(p);
+    uint16_t depth = 0;
+    uint16_t max_depth = 0;
+
+    int *depthmap = malloc(p_len * sizeof(int));
+
     for (size_t i = 0; p[i] != '\0'; i++)
     {
-        NFA fragment = (p[i] == '.') ? addWildcard()
-                                     : addLiteral(p[i]);
-
-        if (p[i + 1] == '*')
+        // increase depth if non-escaped starting parenthesis is found
+        if (p[i] == '(' && (i == 0 || (p[i - 1] != '\\')))
         {
-            fragment = addKleeneClosure(fragment);
-            while (p[i + 1] == '*')
-                i++;
+            depthmap[i] = depth;
+            depth++;
+            max_depth = (depth > max_depth) ? depth : max_depth;
         }
-        n = concatenate(n, fragment);
+        // decrease depth if non-escaped ending parenthesis is found
+        else if (p[i] == ')' && (i == 0 || (p[i - 1] != '\\')))
+        {
+            depth--;
+            depthmap[i] = depth;
+        }
+        else
+        {
+            depthmap[i] = depth;
+        }
     }
+
+    // loop depth map and construct substrings
+    size_t depth_count = (size_t)max_depth + 1;
+
+    // initialize result string array
+    char **result = calloc(depth_count, sizeof(*result));
+    for (size_t i = 0; i < depth_count; i++)
+        result[i] = calloc((size_t)p_len + 1, sizeof(*result[i]));
+
+    // initialize internal position (inside strings inside arrays)
+    size_t *internal_pos = calloc(depth_count, sizeof(*internal_pos));
+
+    // write result in chronological order of depth
+    for (size_t i = 0; p[i] != '\0'; i++)
+    {
+        size_t current_depth = (size_t)depthmap[i];
+        result[current_depth][internal_pos[current_depth]++] = p[i];
+    }
+
+    // theoretically result should now contain char pointers for each depth level
+    for (size_t i = 0; i < depth_count; i++)
+        printf("depth %zu: \"%s\"\n", i, result[i]);
+
+    free(result);
+    free(internal_pos);
+    free(depthmap);
+
+    return result;
+}
+
+NFA regexToNFA(const char *p)
+{
+
+    // need lexer
+
+    NFA n = emptyNFA();
+
+    tokenizeRegex(p);
+
+    // for (size_t i = 0; p[i] != '\0'; i++)
+    //{
+    //     NFA fragment = (p[i] == '.') ? addWildcard()
+    //                                  : addLiteral(p[i]);
+    //
+    //    if (p[i + 1] == '*')
+    //    {
+    //        fragment = addKleeneClosure(fragment);
+    //        while (p[i + 1] == '*')
+    //            i++;
+    //    }
+    //    n = concatenate(n, fragment);
+    //}
     return n;
 }
 
@@ -295,3 +359,9 @@ bool contains_regex(const char *string, const char *pattern)
     free(n.edges);
     return matched;
 }
+
+// Goals:
+// Add support for parenthesies.
+// Add or statement "|".
+// Add plus statement "+".
+// Add support for numerics
