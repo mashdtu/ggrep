@@ -221,86 +221,169 @@ NFA concatenate(NFA left, NFA right)
     return left;
 }
 
-char **tokenizeRegex(const char *p)
+typedef enum
 {
-    int p_len = strlen(p);
+    TOKEN_LITERAL,
+    TOKEN_WILDCARD,
+    TOKEN_STAR,
+    TOKEN_PLUS,
+    TOKEN_ALTERNATION,
+    TOKEN_GROUP_OPEN,
+    TOKEN_GROUP_CLOSE
+} RegexTokenType;
+
+typedef struct
+{
+    RegexTokenType type;
+    char literal;
+    uint16_t depth;
+    uint16_t group_id;
+} RegexToken;
+
+static RegexToken *tokenizeRegex(const char *pattern, size_t *token_count)
+{
+    // allocate one token per possible pattern character and a stack for nested groups
+    size_t pattern_length = strlen(pattern);
+    RegexToken *tokens = calloc(pattern_length, sizeof(*tokens));
+    uint16_t *group_stack = calloc(pattern_length + 1, sizeof(*group_stack));
+
+    // initialize tokenizer position and group tracking
     uint16_t depth = 0;
-    uint16_t max_depth = 0;
+    uint16_t next_group_id = 1;
+    size_t count = 0;
 
-    int *depthmap = malloc(p_len * sizeof(int));
-
-    for (size_t i = 0; p[i] != '\0'; i++)
+    // return failure if allocation failed
+    if ((pattern_length > 0 && tokens == NULL) || group_stack == NULL)
     {
-        // increase depth if non-escaped starting parenthesis is found
-        if (p[i] == '(' && (i == 0 || (p[i - 1] != '\\')))
+        free(tokens);
+        free(group_stack);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < pattern_length; i++)
+    {
+        // treat each character as a literal unless recognized as syntax
+        RegexToken token = {
+            .type = TOKEN_LITERAL,
+            .literal = pattern[i],
+            .depth = depth,
+            .group_id = group_stack[depth]};
+
+        // consume the character after a backslash as an escaped literal
+        if (pattern[i] == '\\' && i + 1 < pattern_length)
         {
-            depthmap[i] = depth;
+            token.literal = pattern[++i];
+        }
+        // enter a new group and assign it an ID distinct from sibling groups
+        else if (pattern[i] == '(')
+        {
+            if (depth == UINT16_MAX || next_group_id == UINT16_MAX)
+                goto invalid_pattern;
+
             depth++;
-            max_depth = (depth > max_depth) ? depth : max_depth;
+            group_stack[depth] = next_group_id++;
+            token.type = TOKEN_GROUP_OPEN;
+            token.depth = depth;
+            token.group_id = group_stack[depth];
+            token.literal = '\0';
         }
-        // decrease depth if non-escaped ending parenthesis is found
-        else if (p[i] == ')' && (i == 0 || (p[i - 1] != '\\')))
+        // close the current group and restore its parent as the active group
+        else if (pattern[i] == ')')
         {
+            if (depth == 0)
+                goto invalid_pattern;
+
+            token.type = TOKEN_GROUP_CLOSE;
+            token.group_id = group_stack[depth];
+            token.literal = '\0';
             depth--;
-            depthmap[i] = depth;
         }
-        else
+        // classify supported regular expression operators
+        else if (pattern[i] == '.')
         {
-            depthmap[i] = depth;
+            token.type = TOKEN_WILDCARD;
+            token.literal = '\0';
         }
+        else if (pattern[i] == '*')
+        {
+            token.type = TOKEN_STAR;
+            token.literal = '\0';
+        }
+        else if (pattern[i] == '+')
+        {
+            token.type = TOKEN_PLUS;
+            token.literal = '\0';
+        }
+        else if (pattern[i] == '|')
+        {
+            token.type = TOKEN_ALTERNATION;
+            token.literal = '\0';
+        }
+
+        // append the completed token while preserving pattern order
+        tokens[count++] = token;
     }
 
-    // loop depth map and construct substrings
-    size_t depth_count = (size_t)max_depth + 1;
+    // reject a pattern with one or more unclosed groups
+    if (depth != 0)
+        goto invalid_pattern;
 
-    // initialize result string array
-    char **result = calloc(depth_count, sizeof(*result));
-    for (size_t i = 0; i < depth_count; i++)
-        result[i] = calloc((size_t)p_len + 1, sizeof(*result[i]));
+    // return the completed token array and its populated length
+    free(group_stack);
+    *token_count = count;
+    return tokens;
 
-    // initialize internal position (inside strings inside arrays)
-    size_t *internal_pos = calloc(depth_count, sizeof(*internal_pos));
-
-    // write result in chronological order of depth
-    for (size_t i = 0; p[i] != '\0'; i++)
-    {
-        size_t current_depth = (size_t)depthmap[i];
-        result[current_depth][internal_pos[current_depth]++] = p[i];
-    }
-
-    // theoretically result should now contain char pointers for each depth level
-    for (size_t i = 0; i < depth_count; i++)
-        printf("depth %zu: \"%s\"\n", i, result[i]);
-
-    free(result);
-    free(internal_pos);
-    free(depthmap);
-
-    return result;
+invalid_pattern:
+    // free partial tokenizer state and report failure
+    free(tokens);
+    free(group_stack);
+    *token_count = 0;
+    return NULL;
 }
 
 NFA regexToNFA(const char *p)
 {
-
-    // need lexer
-
     NFA n = emptyNFA();
 
-    tokenizeRegex(p);
+    size_t token_count = 0;
+    RegexToken *tokens = tokenizeRegex(p, &token_count);
+    if (tokens == NULL && p[0] != '\0')
+    {
+        fprintf(stderr, "Invalid regular expression\n");
+        return n;
+    }
 
-    // for (size_t i = 0; p[i] != '\0'; i++)
-    //{
-    //     NFA fragment = (p[i] == '.') ? addWildcard()
-    //                                  : addLiteral(p[i]);
-    //
-    //    if (p[i + 1] == '*')
-    //    {
-    //        fragment = addKleeneClosure(fragment);
-    //        while (p[i + 1] == '*')
-    //            i++;
-    //    }
-    //    n = concatenate(n, fragment);
-    //}
+    for (size_t i = 0; i < token_count; i++)
+    {
+        RegexToken token = tokens[i];
+        NFA fragment;
+
+        switch (token.type)
+        {
+        case TOKEN_LITERAL:
+            fragment = addLiteral(token.literal);
+            break;
+
+        case TOKEN_WILDCARD:
+            fragment = addWildcard();
+            break;
+
+        default:
+            continue;
+        }
+
+        if (i + 1 < token_count && tokens[i + 1].type == TOKEN_STAR)
+        {
+            fragment = addKleeneClosure(fragment);
+            i++;
+        }
+
+        n = concatenate(n, fragment);
+    }
+
+    // still missing parser before complex expressions are possible
+
+    free(tokens);
     return n;
 }
 
@@ -360,8 +443,3 @@ bool contains_regex(const char *string, const char *pattern)
     return matched;
 }
 
-// Goals:
-// Add support for parenthesies.
-// Add or statement "|".
-// Add plus statement "+".
-// Add support for numerics
