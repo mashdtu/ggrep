@@ -133,6 +133,13 @@ NFA addWildcard(void)
 
 NFA addKleeneClosure(NFA fragment)
 {
+    if (fragment.state_count >= 64)
+    {
+        fprintf(stderr, "NFA is too large\n");
+        free(fragment.edges);
+        exit(EXIT_FAILURE);
+    }
+
     // store new state numbers
     uint16_t oldStart = fragment.start_state + 1;
     uint16_t oldAccept = fragment.accept_state + 1;
@@ -155,6 +162,22 @@ NFA addKleeneClosure(NFA fragment)
     fragment = addEdge(fragment, oldAccept, newAccept, TRANSITION_EPSILON, '\0');
 
     // return altered NFA fragment
+    return fragment;
+}
+
+NFA addKleenePlus(NFA fragment)
+{
+    if (fragment.state_count >= 64)
+    {
+        fprintf(stderr, "NFA is too large\n");
+        free(fragment.edges);
+        exit(EXIT_FAILURE);
+    }
+
+    fragment = addEdge(fragment, fragment.accept_state, fragment.start_state, TRANSITION_EPSILON, '\0');
+    fragment = addEdge(fragment, fragment.accept_state, fragment.state_count, TRANSITION_EPSILON, '\0');
+    fragment.accept_state = fragment.state_count - 1;
+
     return fragment;
 }
 
@@ -377,6 +400,11 @@ NFA regexToNFA(const char *p)
             fragment = addKleeneClosure(fragment);
             i++;
         }
+        else if (i + 1 < token_count && tokens[i + 1].type == TOKEN_PLUS)
+        {
+            fragment = addKleenePlus(fragment);
+            i++;
+        }
 
         n = concatenate(n, fragment);
     }
@@ -442,4 +470,3 @@ bool contains_regex(const char *string, const char *pattern)
     free(n.edges);
     return matched;
 }
-
