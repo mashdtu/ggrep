@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include "regex.h"
 #include "search.h"
 
 #include <ctype.h>
@@ -92,14 +93,12 @@ static bool matches(const char *line, const Options *opts)
 {
     bool found;
 
-    if (opts->ignore_case)
-    {
+    if (opts->regex)
+        found = contains_regex(line, opts->pattern);
+    else if (opts->ignore_case)
         found = contains_icase(line, opts->pattern);
-    }
     else
-    {
         found = contains(line, opts->pattern);
-    }
 
     return opts->invert ? !found : found;
 }

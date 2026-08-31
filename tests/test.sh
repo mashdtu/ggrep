@@ -68,6 +68,12 @@ out=$($GGREP "" tests/test.txt | wc -l | tr -d ' ')
 assert_output "empty pattern matches all" "6" "$out"
 
 
+echo "Regex matching"
+
+out=$(echo "hello world" | $GGREP -P 'h')
+assert_output "regex matches within line" "hello world" "$out"
+
+
 echo "Case insensitive"
 
 out=$($GGREP -i "hello" tests/test.txt)

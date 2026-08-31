@@ -12,6 +12,7 @@ void print_usage(void)
     printf("\n");
     printf("Options:\n");
     printf("  -i        Ignore case when matching\n");
+    printf("  -P        Apply regular expression matching\n");
     printf("  -n        Print line numbers\n");
     printf("  -v        Invert match (print non-matching lines)\n");
     printf("  -h        Show this help message\n");
@@ -23,6 +24,7 @@ int parse_options(int argc, char *argv[], Options *opts)
     opts->ignore_case = false;
     opts->line_numbers = false;
     opts->invert = false;
+    opts->regex = false;
     opts->pattern = NULL;
     opts->file_count = 0;
     opts->files = NULL;
@@ -61,6 +63,9 @@ int parse_options(int argc, char *argv[], Options *opts)
                 break;
             case 'v':
                 opts->invert = true;
+                break;
+            case 'P':
+                opts->regex = true;
                 break;
             case 'h':
                 print_usage();
